@@ -29,6 +29,17 @@ impl Place{
         }
         panic!("void cannot convert to player");
     }
+    pub fn to_str(self) -> &'static str{
+        if self == Place::BLACK {
+            return "BLACK";
+        }
+        else if self == Place::WHITE {
+            return "WHITE"
+        }
+        else{
+            return "VOID";
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -54,6 +65,14 @@ impl Player{
             return Place::WHITE;
         }
     }
+    pub fn to_str(self) -> &'static str{
+        if self == Player::BLACK{
+            return "BLACK";
+        }
+        else{
+            return "WHITE";
+        }
+    }
 }
 
 struct Field{
@@ -76,7 +95,11 @@ impl Field {
     }
 
     fn at(&self, x: i8, y: i8) -> Place {
-        self.fields[x as usize][y as usize]
+        self.fields[y as usize][x as usize]
+    }
+
+    fn set(&mut self, place: Place, x: i8, y: i8) {
+        self.fields[y as usize][x as usize] = place;
     }
 
     fn is_able_to_place(&self, player: Player, x: i8, y: i8) -> bool{
@@ -121,6 +144,17 @@ impl Field {
         }
     }
 
+    fn is_able_to_place_anywhere(&self, player: Player) -> bool {
+        for x in 0..FIELD_WIDTH {
+            for y in 0..FIELD_HEIGHT {
+                if self.at(x as i8, y as i8) == Place::VOID && self.is_able_to_place(player, x as i8, y as i8) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     fn place(&mut self, player: Player, x: i8, y: i8) -> bool {
         if !self.is_able_to_place(player, x, y) {
             return false;
@@ -141,7 +175,7 @@ impl Field {
             return;
         }
 
-        self.fields[x as usize][y as usize] = player.place();
+        self.set(player.place(), x, y);
 
         let mut cx = x;
         let mut cy = y;
@@ -163,9 +197,22 @@ impl Field {
             }
 
             if pos == player.enemy().place(){
-                self.fields[cx as usize][cy as usize] = player.place();
+                self.set(player.place(), cx, cy);
             }
         }
+    }
+
+    fn count_of(&self, player: Player) -> usize {
+        let place = player.place();
+        let mut count = 0;
+        for x in 0..FIELD_WIDTH {
+            for y in 0..FIELD_HEIGHT {
+                if self.at(x as i8, y as i8) == place {
+                    count += 1;
+                }
+            }
+        }
+        return count;
     }
 
     pub fn is_in_field(x: i8, y: i8) -> bool {
@@ -202,21 +249,59 @@ fn main() {
     field.print();
 
     let mut player = Player::BLACK;
+    let mut passed = false;
     loop{
         let xy = proc_input(&field, player);
         field.place(player, xy[0], xy[1]);
         field.print();
         player = player.enemy();
+
+        //pass?
+        if field.is_able_to_place_anywhere(player) {
+            passed = false;
+        }
+        else{
+            println!("{} passed.", player.to_str());
+            if passed {
+                game_end(&field);
+                return;
+            }
+            else{
+                passed = true;
+                player = player.enemy();
+                if !field.is_able_to_place_anywhere(player){
+                    game_end(&field);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+fn game_end(field : &Field) {
+    println!("game end!");
+    let black = field.count_of(Player::BLACK);
+    let white = field.count_of(Player::WHITE);
+    println!("BLACK: {}", black);
+    println!("WHITE: {}", white);
+    if black > white {
+        println!("BLACK wins!");
+    }
+    else if white > black {
+        println!("WHITE wins!");
+    }
+    else{
+        println!("DRAW");
     }
 }
 
 //手番の入力を受け付け、置く座標を返す（実際に置けるかどうかの判断まではしない）
 fn prompt(player: Player) -> [i8; 2] {
     if player == Player::BLACK {
-        print!("BLACK");
+        print!("BLACK(●)");
     }
     else if player == Player::WHITE{
-        print!("WHITE");
+        print!("WHITE(○)");
     }
     println!(": input x(1~8) and y(1~8) with whitespace separated (ex. \"1 1\") > ");
 

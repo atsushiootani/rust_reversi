@@ -99,8 +99,8 @@ impl Field {
         let mut cx = x;
         let mut cy = y;
         loop {
-            cx = cx + mx;
-            cy = cy + my;
+            cx += mx;
+            cy += my;
             if !Field::is_in_field(cx, cy) {
                 return false;
             }
@@ -121,7 +121,54 @@ impl Field {
         }
     }
 
-    pub fn is_in_field(x: i8, y: i8) -> bool{
+    fn place(&mut self, player: Player, x: i8, y: i8) -> bool {
+        if !self.is_able_to_place(player, x, y) {
+            return false;
+        }
+
+        let dirs = [[0, 1], [1, 0], [1, 1], [1, -1], [-1, 1], [-1, 0], [0, -1], [-1, -1]];
+
+        for dir in dirs.iter() {
+            if self.is_able_t_place_direction(player, x, y, dir[0], dir[1]) {
+                self.reverse_direction(player, x, y, dir[0], dir[1]);
+            }
+        }
+        return true;
+    }
+
+    fn reverse_direction(&mut self, player: Player, x: i8, y: i8, mx: i8, my: i8) {
+        if !self.is_able_t_place_direction(player, x, y, mx, my){
+            return;
+        }
+
+        self.fields[x as usize][y as usize] = player.place();
+
+        let mut cx = x;
+        let mut cy = y;
+        loop {
+            cx += mx;
+            cy += my;
+            if !Field::is_in_field(cx, cy){
+                return;
+            }
+
+            let pos = self.at(cx, cy);
+
+            if pos == Place::VOID {
+                return;
+            }
+
+            if pos == player.place() {
+                return;
+            }
+
+            if pos == player.enemy().place(){
+                self.fields[cx as usize][cy as usize] = player.place();
+            }
+        }
+    }
+
+    pub fn is_in_field(x: i8, y: i8) -> bool {
         x >= 0 && x < FIELD_WIDTH as i8 && y >= 0 && y < FIELD_HEIGHT as i8
     }
 
@@ -154,9 +201,13 @@ fn main() {
     field.start();
     field.print();
 
-    let player = Player::BLACK;
-    proc_input(&field, player);
-
+    let mut player = Player::BLACK;
+    loop{
+        let xy = proc_input(&field, player);
+        field.place(player, xy[0], xy[1]);
+        field.print();
+        player = player.enemy();
+    }
 }
 
 //手番の入力を受け付け、置く座標を返す（実際に置けるかどうかの判断まではしない）
@@ -180,8 +231,7 @@ fn prompt(player: Player) -> [i8; 2] {
 }
 
 fn proc_input(field: &Field, player: Player) -> [i8; 2] {
-    let mut ok = false;
-    while !ok {
+    loop {
         let xy = prompt(player);
         let x = xy[0];
         let y = xy[1];
@@ -197,6 +247,4 @@ fn proc_input(field: &Field, player: Player) -> [i8; 2] {
             println!("cannot place there. input another place");
         }
     }
-
-    panic!("cannot place");
 }
